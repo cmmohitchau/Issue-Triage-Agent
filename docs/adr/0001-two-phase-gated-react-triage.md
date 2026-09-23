@@ -1,0 +1,3 @@
+# Two-phase triage with a ReAct agent and a fully gated write
+
+When an issue opens, a ReAct-style LangGraph agent (fetch → classify → search duplicates → draft, own tool order, 10-step budget) computes a proposal artifact and then stops; a separate GitHub Actions job gated behind the `triage` environment applies labels and posts the comment only after human approval. We chose this over a single-job pipeline (or a linear graph with writes inline) because no write can touch the issue pre-approval, phase 2 stays LLM-free and cheap, and the artifact doubles as the audit trail of what was approved — at the cost of workflow/graph structure that is painful to unwind later. The agent deliberately has no GitHub write tools; the JSON artifact is its only output.
