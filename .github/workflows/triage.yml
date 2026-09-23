@@ -1,0 +1,57 @@
+name: triage
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: none
+
+jobs:
+  phase1:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+    env:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+      - run: uv sync --locked
+      - name: Run phase 1 (proposal artifact, no writes)
+        run: >
+          uv run python -m issue_triage_agent.phase1_main
+          --event-path "$GITHUB_EVENT_PATH"
+          --out proposal.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: proposal
+          path: proposal.json
+          if-no-files-found: error
+
+  phase2:
+    needs: phase1
+    environment: triage
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+      - run: uv sync --locked
+      - uses: actions/download-artifact@v4
+        with:
+          name: proposal
+          path: .
+      - name: Run phase 2 (approved artifact to writes, no LLM)
+        run: >
+          uv run python -m issue_triage_agent.phase2_main
+          --artifact proposal.json
+          --issue-number "${{ github.event.issue.number }}"
