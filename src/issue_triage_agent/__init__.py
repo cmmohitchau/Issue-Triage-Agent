@@ -9,6 +9,7 @@ from issue_triage_agent.artifact import (
 )
 from issue_triage_agent.payload import IssuePayload
 from issue_triage_agent.phase1 import run_phase1
+from issue_triage_agent.phase2 import run_phase2
 
 __all__ = [
     "AuthorHistorySummary",
@@ -18,4 +19,5 @@ __all__ = [
     "ProposalArtifact",
     "TriageRole",
     "run_phase1",
+    "run_phase2",
 ]

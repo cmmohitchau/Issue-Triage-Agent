@@ -4,6 +4,10 @@ from dataclasses import dataclass
 from enum import Enum
 
 from issue_triage_agent.artifact import AuthorHistorySummary
+from issue_triage_agent.label_policy import EXISTING_LABELS
+
+#: Labels already on the repo per spec (shared with phase 2 policy).
+DEFAULT_LABELS = EXISTING_LABELS
 
 
 class WriteOp(str, Enum):
@@ -63,8 +67,16 @@ class FakeGitHub:
         self._issues: dict[int, _SeededIssue] = {}
         self._authors: dict[str, AuthorHistorySummary] = {}
         self._search_hits: list[SearchHit] = []
+        self._labels: set[str] = set(DEFAULT_LABELS)
         self.reads: list[ReadOp] = []
         self.writes: list[WriteCall] = []
+
+    @property
+    def labels(self) -> frozenset[str]:
+        return frozenset(self._labels)
+
+    def seed_label(self, name: str) -> None:
+        self._labels.add(name)
 
     def seed_issue(
         self,
@@ -121,7 +133,9 @@ class FakeGitHub:
         ]
 
     def create_label_if_missing(self, name: str) -> None:
-        self.writes.append(WriteCall(op=WriteOp.CREATE_LABEL, name=name))
+        if name not in self._labels:
+            self._labels.add(name)
+            self.writes.append(WriteCall(op=WriteOp.CREATE_LABEL, name=name))
 
     def apply_labels(self, issue_number: int, labels: list[str]) -> None:
         self.writes.append(
