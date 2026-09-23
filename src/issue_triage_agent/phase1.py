@@ -1,6 +1,7 @@
 """Phase 1: ReAct loop from issue payload to proposal artifact (seam A)."""
 
 import json
+from pathlib import Path
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage
@@ -9,7 +10,11 @@ from langgraph.prebuilt import create_react_agent
 from issue_triage_agent.artifact import ProposalArtifact
 from issue_triage_agent.github_reads import GitHubReads
 from issue_triage_agent.payload import IssuePayload
-from issue_triage_agent.tools import make_fetch_author_history, make_fetch_issue
+from issue_triage_agent.tools import (
+    make_fetch_author_history,
+    make_fetch_issue,
+    make_search_docs,
+)
 
 TOOL_BUDGET = 10
 
@@ -27,6 +32,10 @@ Call read-only tools in whatever order helps (fetch the issue, author history, e
 Issue Kind rubric (apply verbatim, never gut feeling):
 {NEEDS_REPRO_RUBRIC}
 Remaining kinds: feature, question, duplicate.
+Acknowledge feature requests and questions warmly; confirm bugs per the rubric.
+Tailor the draft to Author History: welcome first-time contributors, and
+acknowledge repeat reporters with their prior issue count.
+Link existing documentation via search_docs instead of retyping answers.
 Fixed Triage Role mapping: needs-repro → needs-info; every other kind → needs-triage.
 labels must include the issue_kind value and the triage_role value.
 The draft must name exactly what is missing (repro steps or error text, version, OS/runtime).
@@ -40,10 +49,15 @@ def run_phase1(
     *,
     llm: BaseChatModel,
     github: GitHubReads,
+    docs_root: Path | None = None,
 ) -> ProposalArtifact:
     """Run the ReAct triage loop for one opened issue; return the proposal artifact."""
     _ensure_issue_seeded(payload, github)
-    tools = [make_fetch_issue(github), make_fetch_author_history(github)]
+    tools = [
+        make_fetch_issue(github),
+        make_fetch_author_history(github),
+        make_search_docs(docs_root),
+    ]
     app = create_react_agent(llm, tools)
     result = app.invoke(
         {
