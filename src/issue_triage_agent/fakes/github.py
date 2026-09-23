@@ -14,6 +14,14 @@ class WriteOp(str, Enum):
     POST_COMMENT = "post_comment"
 
 
+class ReadOp(str, Enum):
+    """Discriminator for recorded GitHub read calls at the fake boundary."""
+
+    FETCH_ISSUE = "fetch_issue"
+    FETCH_AUTHOR_HISTORY = "fetch_author_history"
+    SEARCH_ISSUES = "search_issues"
+
+
 @dataclass(frozen=True)
 class IssueSnapshot:
     number: int
@@ -55,6 +63,7 @@ class FakeGitHub:
         self._issues: dict[int, _SeededIssue] = {}
         self._authors: dict[str, AuthorHistorySummary] = {}
         self._search_hits: list[SearchHit] = []
+        self.reads: list[ReadOp] = []
         self.writes: list[WriteCall] = []
 
     def seed_issue(
@@ -83,6 +92,7 @@ class FakeGitHub:
         )
 
     def fetch_issue(self, number: int) -> IssueSnapshot:
+        self.reads.append(ReadOp.FETCH_ISSUE)
         issue = self._issues[number]
         return IssueSnapshot(
             number=issue.number,
@@ -93,9 +103,11 @@ class FakeGitHub:
         )
 
     def fetch_author_history(self, login: str) -> AuthorHistorySummary:
+        self.reads.append(ReadOp.FETCH_AUTHOR_HISTORY)
         return self._authors[login]
 
     def search_issues(self, query: str) -> list[SearchHit]:
+        self.reads.append(ReadOp.SEARCH_ISSUES)
         tokens = [t for t in query.lower().split() if t]
         if not tokens:
             return []
