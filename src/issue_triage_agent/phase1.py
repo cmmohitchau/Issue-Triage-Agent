@@ -13,8 +13,23 @@ from issue_triage_agent.tools import make_fetch_author_history, make_fetch_issue
 
 TOOL_BUDGET = 10
 
-_SYSTEM_PROMPT = """You are an issue triage agent.
+#: Verbatim Issue Kind rubric: bug needs both repro evidence and environment.
+NEEDS_REPRO_RUBRIC = (
+    "kind = bug requires ALL of (a) reproduction steps OR verbatim error "
+    "text/stack trace, and (b) environment info: app/package version AND "
+    "OS/runtime. If either (a) or (b) is missing → kind = needs-repro. "
+    "needs-repro means: a plausible bug, but the reporter must supply the "
+    "missing item(s) before it can be worked."
+)
+
+SYSTEM_PROMPT = f"""You are an issue triage agent.
 Call read-only tools in whatever order helps (fetch the issue, author history, etc.).
+Issue Kind rubric (apply verbatim, never gut feeling):
+{NEEDS_REPRO_RUBRIC}
+Remaining kinds: feature, question, duplicate.
+Fixed Triage Role mapping: needs-repro → needs-info; every other kind → needs-triage.
+labels must include the issue_kind value and the triage_role value.
+The draft must name exactly what is missing (repro steps or error text, version, OS/runtime).
 When ready, emit a single JSON object with keys:
 issue_kind, triage_role, duplicate, draft, labels, author_history.
 No write tools exist; the JSON is your only output."""
@@ -33,7 +48,7 @@ def run_phase1(
     result = app.invoke(
         {
             "messages": [
-                SystemMessage(content=_SYSTEM_PROMPT),
+                SystemMessage(content=SYSTEM_PROMPT),
                 ("user", f"Triage issue #{payload.number}: {payload.title}"),
             ]
         },
